@@ -1,0 +1,236 @@
+import file=tpch_schema
+----
+
+import file=tpch_stats
+----
+
+# --------------------------------------------------
+# Q22
+# Global Sales Opportunity
+# Identifies geographies where there are customers who may be likely to make a
+# purchase.
+#
+# This query counts how many customers within a specific range of country codes
+# have not placed orders for 7 years but who have a greater than average
+# “positive” account balance. It also reflects the magnitude of that balance.
+# Country code is defined as the first two characters of c_phone.
+# --------------------------------------------------
+stats-quality database=tpch stats-quality-prefix=q22
+SELECT
+    cntrycode,
+    count(*) AS numcust,
+    sum(c_acctbal) AS totacctbal
+FROM (
+    SELECT
+        substring(c_phone FROM 1 FOR 2) AS cntrycode,
+        c_acctbal
+    FROM
+        customer
+    WHERE
+        substring(c_phone FROM 1 FOR 2) in
+            ('13', '31', '23', '29', '30', '18', '17')
+        AND c_acctbal > (
+            SELECT
+                avg(c_acctbal)
+            FROM
+                customer
+            WHERE
+                c_acctbal > 0.00
+                AND substring(c_phone FROM 1 FOR 2) in
+                    ('13', '31', '23', '29', '30', '18', '17')
+        )
+        AND NOT EXISTS (
+            SELECT
+                *
+            FROM
+                orders
+            WHERE
+                o_custkey = c_custkey
+        )
+    ) AS custsale
+GROUP BY
+    cntrycode
+ORDER BY
+    cntrycode;
+----
+----
+sort
+ ├── save-table-name: q22_sort_1
+ ├── columns: cntrycode:33(string) numcust:34(int!null) totacctbal:35(float!null)
+ ├── immutable
+ ├── stats: [rows=1e-10, distinct(33)=1e-10, null(33)=0, distinct(34)=1e-10, null(34)=0, distinct(35)=1e-10, null(35)=0]
+ ├── key: (33)
+ ├── fd: (33)-->(34,35)
+ ├── ordering: +33
+ └── group-by
+      ├── save-table-name: q22_group_by_2
+      ├── columns: cntrycode:33(string) count_rows:34(int!null) sum:35(float!null)
+      ├── grouping columns: cntrycode:33(string)
+      ├── immutable
+      ├── stats: [rows=1e-10, distinct(33)=1e-10, null(33)=0, distinct(34)=1e-10, null(34)=0, distinct(35)=1e-10, null(35)=0]
+      ├── key: (33)
+      ├── fd: (33)-->(34,35)
+      ├── project
+      │    ├── save-table-name: q22_project_3
+      │    ├── columns: cntrycode:33(string) c_acctbal:6(float!null)
+      │    ├── immutable
+      │    ├── stats: [rows=1e-10, distinct(6)=1e-10, null(6)=0, distinct(33)=1e-10, null(33)=0]
+      │    ├── anti-join (lookup orders@o_ck)
+      │    │    ├── save-table-name: q22_lookup_join_4
+      │    │    ├── columns: c_custkey:1(int!null) c_phone:5(char!null) c_acctbal:6(float!null)
+      │    │    ├── key columns: [1] = [23]
+      │    │    ├── immutable
+      │    │    ├── stats: [rows=1e-10, distinct(1)=1e-10, null(1)=0, distinct(5)=1e-10, null(5)=0, distinct(6)=1e-10, null(6)=0]
+      │    │    ├── key: (1)
+      │    │    ├── fd: (1)-->(5,6)
+      │    │    ├── select
+      │    │    │    ├── save-table-name: q22_select_5
+      │    │    │    ├── columns: c_custkey:1(int!null) c_phone:5(char!null) c_acctbal:6(float!null)
+      │    │    │    ├── immutable
+      │    │    │    ├── stats: [rows=16666.6667, distinct(1)=16658.9936, null(1)=0, distinct(5)=16666.6667, null(5)=0, distinct(6)=16666.6667, null(6)=0]
+      │    │    │    ├── key: (1)
+      │    │    │    ├── fd: (1)-->(5,6)
+      │    │    │    ├── scan customer
+      │    │    │    │    ├── save-table-name: q22_scan_6
+      │    │    │    │    ├── columns: c_custkey:1(int!null) c_phone:5(char!null) c_acctbal:6(float!null)
+      │    │    │    │    ├── stats: [rows=150000, distinct(1)=148813, null(1)=0, distinct(5)=150000, null(5)=0, distinct(6)=140426, null(6)=0]
+      │    │    │    │    │   histogram(1)=  0  6   772   6   839   6    793   6    666   6    657   6    737   6    787   6    755   6    621   6    752   6    707   6    714   6    756   6    727    6    859    6    729    6    664    6    754    6    751    6    650    6    797    6    718    6    729    6    729    6    807    6    830    6    793    6    673    6    733    6    762    6    690    6    706    6    889    6    728    6    768    6    743    6    734    6    754    6    744    6    753    6    805    6    679    6    757    6    706    6    802    6    687    6    787    6    778    6    780    6    829    6    748    6    718    6    838    6    746    6    700    6    783    6    792    6    698    6    770    6    771    6    713    6    692    6    803    6    680    6    684    6    677    6    693    6    700    6    766    6    749    6    664    6    783    6    699    6    787    6    698    6    702    6    726    6    704    6    662    6    754    6    832    6    646    6    748    6    760    6    689    6    725    6    690    6    758    6    719    6    691    6    650    6    741    6    725    6    703    6    741    6    773    6    773    6    662    6    717    6    748    6    956    6    761    6    726    6    649    6    712    6    768    6    695    6    717    6    736    6    721    6    748    6    690    6    728    6    790    6    633    6    778    6    935    6    664    6    688    6    683    6    693    6    741    6    729    6    731    6    798    6    689    6    677    6    774    6    817    6    821    6    773    6    724    6    714    6    687    6    716    6     857    6     804    6     822    6     875    6     645    6     787    6     718    6     801    6     762    6     757    6     747    6     635    6     688    6     822    6     675    6     726    6     809    6     784    6     681    6     777    6     704    6     901    6     805    6     818    6     656    6     731    6     719    6     721    6     833    6     798    6     779    6     814    6     745    6     773    6     783    6     790    6     876    6     746    6     728    6     774    6     802    6     709    6     694    6     805    6     771    6     731    6     702    6     683    6     835    6     718    6     716    6     732    6     756    6     795    6     697    6     736    6     817    6     825    6     797    6     808    6     856    6     715    6     797    6     715    6
+      │    │    │    │    │                <--- 24 ----- 831 ----- 1757 ----- 2603 ----- 3203 ----- 3785 ----- 4528 ----- 5363 ----- 6140 ----- 6637 ----- 7408 ----- 8093 ----- 8791 ----- 9570 ----- 10294 ----- 11255 ----- 11983 ----- 12580 ----- 13354 ----- 14124 ----- 14691 ----- 15543 ----- 16249 ----- 16977 ----- 17705 ----- 18576 ----- 19486 ----- 20332 ----- 20948 ----- 21684 ----- 22474 ----- 23126 ----- 23810 ----- 24820 ----- 25546 ----- 26346 ----- 27101 ----- 27839 ----- 28613 ----- 29370 ----- 30143 ----- 31009 ----- 31638 ----- 32418 ----- 33101 ----- 33962 ----- 34607 ----- 35441 ----- 36260 ----- 37083 ----- 37992 ----- 38756 ----- 39463 ----- 40388 ----- 41148 ----- 41819 ----- 42646 ----- 43490 ----- 44157 ----- 44961 ----- 45767 ----- 46464 ----- 47120 ----- 47983 ----- 48614 ----- 49253 ----- 49877 ----- 50534 ----- 51206 ----- 52003 ----- 52768 ----- 53364 ----- 54191 ----- 54861 ----- 55696 ----- 56364 ----- 57039 ----- 57761 ----- 58441 ----- 59034 ----- 59809 ----- 60723 ----- 61281 ----- 62045 ----- 62830 ----- 63479 ----- 64200 ----- 64852 ----- 65634 ----- 66342 ----- 66995 ----- 67560 ----- 68311 ----- 69032 ----- 69710 ----- 70461 ----- 71270 ----- 72079 ----- 72672 ----- 73377 ----- 74140 ----- 75260 ----- 76048 ----- 76770 ----- 77334 ----- 78029 ----- 78829 ----- 79490 ----- 80195 ----- 80937 ----- 81649 ----- 82413 ----- 83064 ----- 83790 ----- 84631 ----- 85157 ----- 85975 ----- 87062 ----- 87659 ----- 88305 ----- 88942 ----- 89599 ----- 90349 ----- 91076 ----- 91807 ----- 92661 ----- 93310 ----- 93934 ----- 94746 ----- 95634 ----- 96529 ----- 97339 ----- 98058 ----- 98757 ----- 99401 ----- 100103 ----- 101060 ----- 101925 ----- 102821 ----- 103809 ----- 104364 ----- 105198 ----- 105905 ----- 106764 ----- 107554 ----- 108335 ----- 109096 ----- 109627 ----- 110274 ----- 111171 ----- 111792 ----- 112499 ----- 113362 ----- 114180 ----- 114796 ----- 115600 ----- 116264 ----- 117284 ----- 118139 ----- 119017 ----- 119578 ----- 120295 ----- 120990 ----- 121688 ----- 122593 ----- 123435 ----- 124244 ----- 125116 ----- 125861 ----- 126659 ----- 127474 ----- 128302 ----- 129281 ----- 130028 ----- 130739 ----- 131538 ----- 132388 ----- 133062 ----- 133705 ----- 134560 ----- 135353 ----- 136070 ----- 136729 ----- 137349 ----- 138257 ----- 138949 ----- 139638 ----- 140358 ----- 141124 ----- 141961 ----- 142611 ----- 143338 ----- 144215 ----- 145106 ----- 145947 ----- 146808 ----- 147752 ----- 148439 ----- 149280 ----- 149967
+      │    │    │    │    │   histogram(5)=  0          1          1.5e+05          1
+      │    │    │    │    │                <--- '10-101-662-5213' --------- '34-993-352-7344'
+      │    │    │    │    │   histogram(6)=  0          15          1.4997e+05       15
+      │    │    │    │    │                <--- -998.5999755859375 ------------ 9999.5703125
+      │    │    │    │    ├── key: (1)
+      │    │    │    │    └── fd: (1)-->(5,6)
+      │    │    │    └── filters
+      │    │    │         ├── substring(c_phone:5, 1, 2) IN ('13', '17', '18', '23', '29', '30', '31') [type=bool, outer=(5), immutable]
+      │    │    │         └── gt [type=bool, outer=(6), immutable, subquery, constraints=(/6: (/NULL - ])]
+      │    │    │              ├── c_acctbal:6 [type=float]
+      │    │    │              └── subquery [type=float]
+      │    │    │                   └── scalar-group-by
+      │    │    │                        ├── save-table-name: q22_scalar_group_by_7
+      │    │    │                        ├── columns: avg:21(float)
+      │    │    │                        ├── cardinality: [1 - 1]
+      │    │    │                        ├── immutable
+      │    │    │                        ├── stats: [rows=1, distinct(21)=1, null(21)=0]
+      │    │    │                        ├── key: ()
+      │    │    │                        ├── fd: ()-->(21)
+      │    │    │                        ├── select
+      │    │    │                        │    ├── save-table-name: q22_select_8
+      │    │    │                        │    ├── columns: c_phone:15(char!null) c_acctbal:16(float!null)
+      │    │    │                        │    ├── immutable
+      │    │    │                        │    ├── stats: [rows=45456.062, distinct(15)=45456.062, null(15)=0, distinct(16)=45456.062, null(16)=0]
+      │    │    │                        │    │   histogram(16)=  0   0   45451       5
+      │    │    │                        │    │                 <--- 0.0 ------- 9999.5703125
+      │    │    │                        │    ├── scan customer
+      │    │    │                        │    │    ├── save-table-name: q22_scan_9
+      │    │    │                        │    │    ├── columns: c_phone:15(char!null) c_acctbal:16(float!null)
+      │    │    │                        │    │    └── stats: [rows=150000, distinct(15)=150000, null(15)=0, distinct(16)=140426, null(16)=0]
+      │    │    │                        │    │        histogram(15)=  0          1          1.5e+05          1
+      │    │    │                        │    │                      <--- '10-101-662-5213' --------- '34-993-352-7344'
+      │    │    │                        │    │        histogram(16)=  0          15          1.4997e+05       15
+      │    │    │                        │    │                      <--- -998.5999755859375 ------------ 9999.5703125
+      │    │    │                        │    └── filters
+      │    │    │                        │         ├── c_acctbal:16 > 0.0 [type=bool, outer=(16), constraints=(/16: [/5e-324 - ]; tight)]
+      │    │    │                        │         └── substring(c_phone:15, 1, 2) IN ('13', '17', '18', '23', '29', '30', '31') [type=bool, outer=(15), immutable]
+      │    │    │                        └── aggregations
+      │    │    │                             └── avg [as=avg:21, type=float, outer=(16)]
+      │    │    │                                  └── c_acctbal:16 [type=float]
+      │    │    └── filters (true)
+      │    └── projections
+      │         └── substring(c_phone:5, 1, 2) [as=cntrycode:33, type=string, outer=(5), immutable]
+      └── aggregations
+           ├── count-rows [as=count_rows:34, type=int]
+           └── sum [as=sum:35, type=float, outer=(6)]
+                └── c_acctbal:6 [type=float]
+
+----Stats for q22_sort_1----
+column_names  row_count  distinct_count  null_count
+{cntrycode}   7          7               0
+{numcust}     7          7               0
+{totacctbal}  7          7               0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{cntrycode}   0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+{numcust}     0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+{totacctbal}  0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+
+----Stats for q22_group_by_2----
+column_names  row_count  distinct_count  null_count
+{cntrycode}   7          7               0
+{count_rows}  7          7               0
+{sum}         7          7               0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{cntrycode}   0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+{count_rows}  0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+{sum}         0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+
+----Stats for q22_project_3----
+column_names  row_count  distinct_count  null_count
+{c_acctbal}   6384       6304            0
+{cntrycode}   6384       7               0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{c_acctbal}   0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+{cntrycode}   0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+
+----Stats for q22_lookup_join_4----
+column_names  row_count  distinct_count  null_count
+{c_acctbal}   6384       6304            0
+{c_custkey}   6384       6359            0
+{c_phone}     6384       6428            0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{c_acctbal}   0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+{c_custkey}   0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+{c_phone}     0.00           +Inf <==       0.00                +Inf <==            0.00            1.00
+
+----Stats for q22_select_5----
+column_names  row_count  distinct_count  null_count
+{c_acctbal}   19000      18527           0
+{c_custkey}   19000      19097           0
+{c_phone}     19000      19095           0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{c_acctbal}   16667.00       1.14           16667.00            1.11                0.00            1.00
+{c_custkey}   16667.00       1.14           16659.00            1.15                0.00            1.00
+{c_phone}     16667.00       1.14           16667.00            1.15                0.00            1.00
+
+----Stats for q22_scan_6----
+column_names  row_count  distinct_count  null_count
+{c_acctbal}   150000     140628          0
+{c_custkey}   150000     148813          0
+{c_phone}     150000     150872          0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{c_acctbal}   150000.00      1.00           140426.00           1.00                0.00            1.00
+{c_custkey}   150000.00      1.00           148813.00           1.00                0.00            1.00
+{c_phone}     150000.00      1.00           150000.00           1.01                0.00            1.00
+
+----Stats for q22_scalar_group_by_7----
+column_names  row_count  distinct_count  null_count
+{avg}         1          1               0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{avg}         1.00           1.00           1.00                1.00                0.00            1.00
+
+----Stats for q22_select_8----
+column_names  row_count  distinct_count  null_count
+{c_acctbal}   38120      37172           0
+{c_phone}     38120      38046           0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{c_acctbal}   45456.00       1.19           45456.00            1.22                0.00            1.00
+{c_phone}     45456.00       1.19           45456.00            1.19                0.00            1.00
+
+----Stats for q22_scan_9----
+column_names  row_count  distinct_count  null_count
+{c_acctbal}   150000     140628          0
+{c_phone}     150000     150872          0
+~~~~
+column_names  row_count_est  row_count_err  distinct_count_est  distinct_count_err  null_count_est  null_count_err
+{c_acctbal}   150000.00      1.00           140426.00           1.00                0.00            1.00
+{c_phone}     150000.00      1.00           150000.00           1.01                0.00            1.00
+----
+----
